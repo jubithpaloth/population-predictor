@@ -1,111 +1,143 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-import io
-import base64
-from pathlib import Path
+from sklearn.metrics.pairwise import euclidean_distances
 
 # Page configuration
 st.set_page_config(
     page_title="STR Population Predictor",
     page_icon="🧬",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-@st.cache_data
+@st.cache_resource
 def load_model():
-    """Load the trained model and data"""
+    """Load the STR population prediction model"""
     try:
         with open('str_model_final.pkl', 'rb') as f:
-            model_data = pickle.load(f)
-        return model_data
+            model_package = pickle.load(f)
+        return model_package
     except Exception as e:
-        st.error(f"Error loading model: {str(e)}")
+        st.error(f"Error loading model: {e}")
         return None
 
-def predict_profile(profile_data, model_data):
-    """Make prediction for a single profile"""
-    # Prepare input data
-    str_markers = model_data['str_markers']
-    input_vector = []
+def predict_population(input_data, model_package):
+    """Predict population from STR profile"""
+    try:
+        model = model_package['model']
+        feature_names = model_package['feature_names']  # Changed from 'str_markers'
+        populations = model_package['populations']
+        centroids = model_package['population_centroids']
 
-    for marker in str_markers:
-        if marker in profile_data:
-            input_vector.append(profile_data[marker])
-        else:
-            # Use population mean for missing markers
-            pop_means = model_data['population_centroids']
-            overall_mean = np.mean([pop_means[pop][marker] for pop in pop_means.keys() 
-                                  if marker in pop_means[pop]])
-            input_vector.append(overall_mean)
+        # Prepare input data - ensure all features are present
+        input_array = []
+        for feature in feature_names:
+            value = input_data.get(feature, 0)  # Default to 0 if missing
+            if value is None or pd.isna(value):
+                value = 0
+            input_array.append(float(value))
 
-    input_array = np.array(input_vector).reshape(1, -1)
+        # Create DataFrame for prediction
+        input_df = pd.DataFrame([input_array], columns=feature_names)
 
-    # Get predictions from ensemble
-    ensemble_model = ['ensemble_model']
-    prediction = ensemble_model.predict(input_array)[0]
-    probabilities = ensemble_model.predict_proba(input_array)[0]
+        # Get model predictions
+        try:
+            predictions = model.predict(input_df)
+            probabilities = model.predict_proba(input_df)[0]
 
-    # Get class labels
-    classes = ensemble_model.classes_
+            # Create results with model predictions
+            results = []
+            for i, pop in enumerate(populations):
+                confidence = probabilities[i] * 100
+                results.append({
+                    'rank': i + 1,
+                    'population': pop,
+                    'confidence': confidence,
+                    'method': 'ML Model'
+                })
 
-    # Create results with top predictions
-    results = []
-    prob_pairs = list(zip(classes, probabilities))
-    prob_pairs.sort(key=lambda x: x[1], reverse=True)
+            # Sort by confidence
+            results = sorted(results, key=lambda x: x['confidence'], reverse=True)
 
-    for i, (pop, prob) in enumerate(prob_pairs[:5]):
-        results.append({
-            'rank': i + 1,
-            'population': pop,
-            'confidence': prob * 100,
-            'method': 'Ensemble Model'
-        })
+        except Exception as model_error:
+            st.warning(f"Model prediction failed: {model_error}. Using similarity matching.")
 
-    return results
+            # Fallback to similarity matching
+            results = []
+            input_profile = np.array(input_array).reshape(1, -1)
 
-def create_download_link(df, filename):
-    """Create a download link for dataframe"""
-    csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">Download {filename}</a>'
-    return href
+            for pop, centroid in centroids.items():
+                centroid_array = np.array([centroid.get(feat, 0) for feat in feature_names]).reshape(1, -1)
+                distance = euclidean_distances(input_profile, centroid_array)[0][0]
+
+                # Convert distance to similarity score (lower distance = higher similarity)
+                max_distance = 50  # Approximate maximum possible distance
+                similarity = max(0, (max_distance - distance) / max_distance * 100)
+
+                results.append({
+                    'population': pop,
+                    'confidence': similarity,
+                    'method': 'Similarity'
+                })
+
+            # Sort by confidence
+            results = sorted(results, key=lambda x: x['confidence'], reverse=True)
+
+        # Update ranks
+        for i, result in enumerate(results):
+            result['rank'] = i + 1
+
+        return results[:5]  # Return top 5
+
+    except Exception as e:
+        st.error(f"Prediction error: {e}")
+        return []
 
 def main():
-    # Title and description
-    st.title("🧬 STR Population Prediction Tool")
-    st.markdown("""
-    This tool predicts population ancestry based on STR (Short Tandem Repeat) allele profiles.
-    Upload your data or enter values manually to get population predictions with confidence scores.
-    """)
+    # Header
+    st.title("🧬 STR Population Predictor")
+    st.markdown("Predict population ancestry based on STR allele profiles using machine learning")
 
     # Load model
-    model_data = load_model()
-    if not model_data:
-        st.error("Failed to load the prediction model. Please contact the administrator.")
+    model_package = load_model()
+
+    if model_package is None:
+        st.error("Failed to load the prediction model. Please check the model file.")
         return
 
-    # Sidebar for navigation
-    st.sidebar.title("Navigation")
-    mode = st.sidebar.selectbox(
-        "Choose input method:",
-        ["Manual Entry", "CSV Upload", "Batch Processing", "About"]
-    )
+    st.success("✅ Model loaded successfully!")
 
-    if mode == "Manual Entry":
-        st.header("Manual STR Profile Entry")
+    # Display model info
+    feature_names = model_package['feature_names']  # Changed from 'str_markers'
+    populations = model_package['populations']
 
-        # Create columns for STR markers
-        str_markers = model_data['str_markers']
+    # Sidebar info
+    with st.sidebar:
+        st.header("📊 Model Information")
+        st.write(f"**Populations:** {len(populations)}")
+        st.write(f"**STR Markers:** {len(feature_names)}")
+
+        st.header("🎯 Supported Populations")
+        for pop in populations:
+            st.write(f"• {pop}")
+
+        st.header("🧬 STR Markers")
+        for marker in feature_names:
+            st.write(f"• {marker}")
+
+    # Main interface
+    tab1, tab2, tab3 = st.tabs(["🔢 Manual Entry", "📁 CSV Upload", "ℹ️ About"])
+
+    with tab1:
+        st.header("Enter STR Allele Values")
+        st.info("Enter the allele values for available STR markers. Missing values will be handled automatically.")
+
+        # Create input fields in columns
         cols = st.columns(3)
+        input_data = {}
 
-        profile_data = {}
-
-        # Create input fields for each STR marker
-        for i, marker in enumerate(str_markers):
+        for i, marker in enumerate(feature_names):
             col_idx = i % 3
             with cols[col_idx]:
                 value = st.number_input(
@@ -114,165 +146,215 @@ def main():
                     max_value=50.0,
                     value=0.0,
                     step=0.1,
-                    key=f"manual_{marker}"
+                    key=marker,
+                    help=f"Enter allele value for {marker} marker"
                 )
-                if value > 0:
-                    profile_data[marker] = value
+                input_data[marker] = value if value > 0 else None
+
+        # Clear button
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("🗑️ Clear All"):
+                st.rerun()
 
         # Predict button
-        if st.button("🔍 Predict Population", type="primary"):
-            if profile_data:
-                with st.spinner("Analyzing STR profile..."):
-                    results = predict_profile(profile_data, model_data)
+        with col2:
+            if st.button("🔍 Predict Population", type="primary"):
+                # Check if at least some values are provided
+                valid_values = [v for v in input_data.values() if v is not None and v > 0]
 
-                st.success("Prediction completed!")
+                if len(valid_values) == 0:
+                    st.warning("⚠️ Please enter at least one STR marker value.")
+                else:
+                    with st.spinner("🧬 Analyzing STR profile..."):
+                        results = predict_population(input_data, model_package)
 
-                # Display results
-                st.subheader("Prediction Results")
+                    if results:
+                        st.header("🎯 Prediction Results")
 
-                # Create results dataframe
-                results_df = pd.DataFrame(results)
+                        # Create a nice results display
+                        for result in results:
+                            confidence = result['confidence']
 
-                # Display as styled table
-                st.dataframe(
-                    results_df.style.format({'confidence': '{:.2f}%'}),
-                    use_container_width=True
-                )
+                            # Create columns for better layout
+                            col1, col2, col3 = st.columns([1, 3, 2])
 
-                # Visualization
-                st.subheader("Confidence Visualization")
-                chart_data = pd.DataFrame({
-                    'Population': [r['population'] for r in results],
-                    'Confidence': [r['confidence'] for r in results]
-                })
-                st.bar_chart(chart_data.set_index('Population'))
+                            with col1:
+                                # Rank badge
+                                if result['rank'] == 1:
+                                    st.markdown("🥇 **#1**")
+                                elif result['rank'] == 2:
+                                    st.markdown("🥈 **#2**")
+                                elif result['rank'] == 3:
+                                    st.markdown("🥉 **#3**")
+                                else:
+                                    st.markdown(f"**#{result['rank']}**")
 
-            else:
-                st.warning("Please enter at least one STR marker value.")
+                            with col2:
+                                st.markdown(f"**{result['population']}**")
+                                st.progress(confidence / 100)
 
-    elif mode == "CSV Upload":
-        st.header("CSV File Upload")
+                            with col3:
+                                # Color coding based on confidence
+                                if confidence > 70:
+                                    st.success(f"{confidence:.1f}%")
+                                elif confidence > 40:
+                                    st.warning(f"{confidence:.1f}%")
+                                else:
+                                    st.info(f"{confidence:.1f}%")
 
-        # File uploader
-        uploaded_file = st.file_uploader(
-            "Choose a CSV file",
-            type=['csv'],
-            help="Upload a CSV file with STR marker columns"
-        )
+                        # Interpretation
+                        st.markdown("---")
+                        top_confidence = results[0]['confidence']
+                        if top_confidence > 70:
+                            st.success("🎯 **High Confidence:** Strong prediction reliability")
+                        elif top_confidence > 40:
+                            st.warning("⚠️ **Moderate Confidence:** Consider additional markers for better accuracy")
+                        else:
+                            st.info("ℹ️ **Low Confidence:** Results should be interpreted with caution")
+
+                        # Show input summary
+                        with st.expander("📋 Input Summary"):
+                            input_summary = {k: v for k, v in input_data.items() if v is not None and v > 0}
+                            st.json(input_summary)
+
+    with tab2:
+        st.header("📁 Batch Processing")
+        st.info("Upload a CSV file with STR marker columns for batch processing")
+
+        # Template download
+        if st.button("📥 Download Template"):
+            template_data = {marker: [0.0] for marker in feature_names}
+            template_data['Sample_ID'] = ['Sample_1']
+            template_df = pd.DataFrame(template_data)
+            csv = template_df.to_csv(index=False)
+            st.download_button(
+                label="Download CSV Template",
+                data=csv,
+                file_name="str_template.csv",
+                mime="text/csv"
+            )
+
+        uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
         if uploaded_file is not None:
             try:
-                # Read the CSV file
                 df = pd.read_csv(uploaded_file)
-
-                st.subheader("Data Preview")
+                st.write("📊 Preview of uploaded data:")
                 st.dataframe(df.head())
 
-                # Check for STR markers in columns
-                str_markers = model_data['str_markers']
-                available_markers = [col for col in df.columns if col in str_markers]
+                if st.button("🚀 Process File"):
+                    results_list = []
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
 
-                st.info(f"Found {len(available_markers)} STR markers in your data: {', '.join(available_markers)}")
+                    for idx, row in df.iterrows():
+                        status_text.text(f"Processing sample {idx + 1} of {len(df)}...")
 
-                if st.button("🔍 Analyze Data", type="primary"):
-                    if available_markers:
-                        with st.spinner("Processing data..."):
-                            all_results = []
+                        # Prepare input data
+                        input_data = {}
+                        for marker in feature_names:
+                            value = row.get(marker, None)
+                            if pd.notna(value) and value != 0:
+                                input_data[marker] = float(value)
+                            else:
+                                input_data[marker] = None
 
-                            for idx, row in df.iterrows():
-                                profile_data = {}
-                                for marker in available_markers:
-                                    if pd.notna(row[marker]):
-                                        profile_data[marker] = float(row[marker])
+                        # Get prediction
+                        results = predict_population(input_data, model_package)
 
-                                if profile_data:
-                                    results = predict_profile(profile_data, model_data)
-                                    all_results.append({
-                                        'Sample_ID': f"Sample_{idx+1}",
-                                        'Top_Population': results[0]['population'],
-                                        'Confidence': results[0]['confidence'],
-                                        'Second_Population': results[1]['population'] if len(results) > 1 else '',
-                                        'Second_Confidence': results[1]['confidence'] if len(results) > 1 else 0
-                                    })
+                        if results:
+                            sample_id = row.get('Sample_ID', f'Sample_{idx + 1}')
+                            results_list.append({
+                                'Sample_ID': sample_id,
+                                'Top_Population': results[0]['population'],
+                                'Confidence': f"{results[0]['confidence']:.2f}%",
+                                'Second_Population': results[1]['population'] if len(results) > 1 else '',
+                                'Second_Confidence': f"{results[1]['confidence']:.2f}%" if len(results) > 1 else '',
+                                'Method': results[0].get('method', 'ML Model')
+                            })
 
-                        # Display results
-                        st.subheader("Batch Analysis Results")
-                        results_df = pd.DataFrame(all_results)
-                        st.dataframe(results_df, use_container_width=True)
+                        progress_bar.progress((idx + 1) / len(df))
 
-                        # Download link
-                        st.markdown(
-                            create_download_link(results_df, "str_predictions.csv"),
-                            unsafe_allow_html=True
+                    status_text.text("✅ Processing complete!")
+
+                    # Display batch results
+                    if results_list:
+                        results_df = pd.DataFrame(results_list)
+                        st.success(f"✅ Successfully processed {len(results_list)} samples")
+                        st.dataframe(results_df)
+
+                        # Download results
+                        csv_results = results_df.to_csv(index=False)
+                        st.download_button(
+                            label="📥 Download Results",
+                            data=csv_results,
+                            file_name="str_prediction_results.csv",
+                            mime="text/csv"
                         )
-                    else:
-                        st.error("No STR markers found in the uploaded file.")
+
+                        # Summary statistics
+                        st.subheader("📈 Summary Statistics")
+                        pop_counts = results_df['Top_Population'].value_counts()
+                        st.bar_chart(pop_counts)
 
             except Exception as e:
-                st.error(f"Error processing file: {str(e)}")
+                st.error(f"❌ Error processing file: {e}")
 
-    elif mode == "Batch Processing":
-        st.header("Batch Processing Template")
-
-        # Create template
-        str_markers = model_data['str_markers']
-        template_data = {marker: [0.0] for marker in str_markers}
-        template_df = pd.DataFrame(template_data)
-
-        st.subheader("Download Template")
-        st.markdown(
-            create_download_link(template_df, "str_template.csv"),
-            unsafe_allow_html=True
-        )
-
-        st.subheader("Template Preview")
-        st.dataframe(template_df, use_container_width=True)
-
-        st.markdown("""
-        ### Instructions:
-        1. Download the template CSV file
-        2. Fill in your STR marker values
-        3. Upload the completed file using the "CSV Upload" tab
-        4. Get predictions for all samples at once
-        """)
-
-    else:  # About
-        st.header("About This Tool")
+    with tab3:
+        st.header("ℹ️ About This Tool")
 
         st.markdown("""
         ### STR Population Prediction Tool
 
         This tool uses machine learning to predict population ancestry based on STR (Short Tandem Repeat) allele profiles.
 
-        **Features:**
+        **🎯 Features:**
         - Manual entry for single samples
         - Batch processing via CSV upload
         - Confidence scoring for predictions
         - Top 5 population matches
         - Downloadable results
+        - Robust error handling
 
-        **STR Markers Supported:**
+        **🧬 Supported STR Markers:**
         """)
 
-        # Display supported markers
-        str_markers = model_data['str_markers']
+        # Display markers in a nice grid
         marker_cols = st.columns(3)
-        for i, marker in enumerate(str_markers):
+        for i, marker in enumerate(feature_names):
             col_idx = i % 3
             with marker_cols[col_idx]:
-                st.write(f"• {marker}")
+                st.code(marker)
+
+        st.markdown(f"""
+        **🌍 Supported Populations ({len(populations)}):**
+        """)
+
+        pop_cols = st.columns(2)
+        for i, pop in enumerate(populations):
+            col_idx = i % 2
+            with pop_cols[col_idx]:
+                st.write(f"• {pop}")
 
         st.markdown("""
-        **Model Information:**
-        - Ensemble model combining multiple algorithms
-        - Trained on population genetic data
-        - Provides confidence scores for reliability assessment
-
-        **Usage Guidelines:**
-        - Enter allele values as decimal numbers
+        **📋 Usage Guidelines:**
+        - Enter allele values as decimal numbers (e.g., 12.0, 13.5)
         - Missing markers are handled automatically
         - Results show top 5 most likely populations
         - Confidence scores indicate prediction reliability
+        - Higher confidence = more reliable prediction
+
+        **🤖 Model Information:**
+        - Optimized Random Forest classifier
+        - Trained on population genetic data
+        - Fallback similarity matching for robustness
+        - Provides confidence scores for reliability assessment
+
+        **⚠️ Important Notes:**
+        - This tool is for research purposes
+        - Results should be interpreted by qualified professionals
+        - Consider multiple markers for better accuracy
         """)
 
 if __name__ == "__main__":
