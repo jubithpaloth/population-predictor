@@ -19,7 +19,7 @@ st.set_page_config(
 def load_model():
     """Load the trained model and data"""
     try:
-        with open('advanced_str_population_model.pkl', 'rb') as f:
+        with open('str_model_final.pkl', 'rb') as f:
             model_data = pickle.load(f)
         return model_data
     except Exception as e:
@@ -45,7 +45,7 @@ def predict_profile(profile_data, model_data):
     input_array = np.array(input_vector).reshape(1, -1)
 
     # Get predictions from ensemble
-    ensemble_model = model_data['ensemble_model']
+    ensemble_model = ['ensemble_model']
     prediction = ensemble_model.predict(input_array)[0]
     probabilities = ensemble_model.predict_proba(input_array)[0]
 
