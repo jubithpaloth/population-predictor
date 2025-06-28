@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STR Population Predictor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+        }
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: none;
+            margin-bottom: 20px;
+        }
+        .str-input {
+            margin-bottom: 15px;
+        }
+        .results-table {
+            margin-top: 20px;
+        }
+        .confidence-bar {
+            height: 20px;
+            background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+            border-radius: 10px;
+        }
+        .loading {
+            display: none;
+        }
+        .str-markers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-8 mx-auto text-center">
+                    <h1 class="display-4"><i class="fas fa-dna"></i> STR Population Predictor</h1>
+                    <p class="lead">Predict population ancestry based on STR allele profiles using advanced machine learning</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-5">
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button">
+                    <i class="fas fa-keyboard"></i> Manual Entry
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button">
+                    <i class="fas fa-upload"></i> CSV Upload
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="about-tab" data-bs-toggle="tab" data-bs-target="#about" type="button">
+                    <i class="fas fa-info-circle"></i> About
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="mainTabsContent">
+            <!-- Manual Entry Tab -->
+            <div class="tab-pane fade show active" id="manual" role="tabpanel">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-edit"></i> Enter STR Allele Values</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="manualForm">
+                            <div class="str-markers">
+                                <div class="str-input">
+                                    <label for="CSF1PO" class="form-label">CSF1PO:</label>
+                                    <input type="number" class="form-control" id="CSF1PO" name="CSF1PO" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D13S317" class="form-label">D13S317:</label>
+                                    <input type="number" class="form-control" id="D13S317" name="D13S317" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D16S539" class="form-label">D16S539:</label>
+                                    <input type="number" class="form-control" id="D16S539" name="D16S539" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D18S51" class="form-label">D18S51:</label>
+                                    <input type="number" class="form-control" id="D18S51" name="D18S51" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D19S433" class="form-label">D19S433:</label>
+                                    <input type="number" class="form-control" id="D19S433" name="D19S433" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D21S11" class="form-label">D21S11:</label>
+                                    <input type="number" class="form-control" id="D21S11" name="D21S11" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D2S1338" class="form-label">D2S1338:</label>
+                                    <input type="number" class="form-control" id="D2S1338" name="D2S1338" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D3S1358" class="form-label">D3S1358:</label>
+                                    <input type="number" class="form-control" id="D3S1358" name="D3S1358" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D5S818" class="form-label">D5S818:</label>
+                                    <input type="number" class="form-control" id="D5S818" name="D5S818" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D7S820" class="form-label">D7S820:</label>
+                                    <input type="number" class="form-control" id="D7S820" name="D7S820" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="D8S1179" class="form-label">D8S1179:</label>
+                                    <input type="number" class="form-control" id="D8S1179" name="D8S1179" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="FGA" class="form-label">FGA:</label>
+                                    <input type="number" class="form-control" id="FGA" name="FGA" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="TH01" class="form-label">TH01:</label>
+                                    <input type="number" class="form-control" id="TH01" name="TH01" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="TPOX" class="form-label">TPOX:</label>
+                                    <input type="number" class="form-control" id="TPOX" name="TPOX" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                                <div class="str-input">
+                                    <label for="vWA" class="form-label">vWA:</label>
+                                    <input type="number" class="form-control" id="vWA" name="vWA" 
+                                           step="0.1" min="0" max="50" placeholder="Enter value">
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-search"></i> Predict Population
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-lg" onclick="clearForm()">
+                                    <i class="fas fa-eraser"></i> Clear All
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="loading mt-3">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Analyzing STR profile...</p>
+                            </div>
+                        </div>
+
+                        <div id="manualResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CSV Upload Tab -->
+            <div class="tab-pane fade" id="upload" role="tabpanel">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-file-csv"></i> Batch Processing</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <a href="/template" class="btn btn-outline-primary">
+                                <i class="fas fa-download"></i> Download Template
+                            </a>
+                        </div>
+
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="csvFile" class="form-label">Select CSV File:</label>
+                                <input type="file" class="form-control" id="csvFile" name="file" accept=".csv" required>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-upload"></i> Process File
+                            </button>
+                        </form>
+
+                        <div id="uploadResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Tab -->
+            <div class="tab-pane fade" id="about" role="tabpanel">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle"></i> About This Tool</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>STR Population Prediction Tool</h6>
+                        <p>This tool uses machine learning to predict population ancestry based on STR (Short Tandem Repeat) allele profiles.</p>
+
+                        <h6>Features:</h6>
+                        <ul>
+                            <li>Manual entry for single samples</li>
+                            <li>Batch processing via CSV upload</li>
+                            <li>Confidence scoring for predictions</li>
+                            <li>Top 5 population matches</li>
+                            <li>Downloadable results</li>
+                        </ul>
+
+                        <h6>Supported STR Markers:</h6>
+                        <div class="row">
+                            <div class="col-md-3"><span class="badge bg-secondary">CSF1PO</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D13S317</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D16S539</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D18S51</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D19S433</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D21S11</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D2S1338</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D3S1358</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D5S818</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D7S820</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">D8S1179</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">FGA</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">TH01</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">TPOX</span></div>
+                            <div class="col-md-3"><span class="badge bg-secondary">vWA</span></div>
+                        </div>
+
+                        <h6 class="mt-3">Usage Guidelines:</h6>
+                        <ul>
+                            <li>Enter allele values as decimal numbers</li>
+                            <li>Missing markers are handled automatically</li>
+                            <li>Results show top 5 most likely populations</li>
+                            <li>Confidence scores indicate prediction reliability</li>
+                        </ul>
+
+                        <h6 class="mt-3">Model Information:</h6>
+                        <ul>
+                            <li>Ensemble model combining multiple algorithms</li>
+                            <li>Trained on population genetic data</li>
+                            <li>Provides confidence scores for reliability assessment</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light mt-5 py-4">
+        <div class="container text-center">
+            <p class="text-muted">&copy; 2024 STR Population Predictor - Academic Research Tool</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Manual form submission
+        document.getElementById('manualForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const data = {};
+
+            for (let [key, value] of formData.entries()) {
+                if (value && parseFloat(value) > 0) {
+                    data[key] = parseFloat(value);
+                }
+            }
+
+            if (Object.keys(data).length === 0) {
+                alert('Please enter at least one STR marker value');
+                return;
+            }
+
+            document.querySelector('.loading').style.display = 'block';
+            document.getElementById('manualResults').innerHTML = '';
+
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.querySelector('.loading').style.display = 'none';
+
+                if (data.success) {
+                    displayResults(data.results, 'manualResults');
+                } else {
+                    document.getElementById('manualResults').innerHTML = 
+                        `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                document.querySelector('.loading').style.display = 'none';
+                document.getElementById('manualResults').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Error: ${error}</div>`;
+            });
+        });
+
+        // Upload form submission
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const fileInput = document.getElementById('csvFile');
+
+            if (!fileInput.files[0]) {
+                alert('Please select a CSV file');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('uploadResults').innerHTML = 
+                '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Processing file...</p></div>';
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayBatchResults(data.results, 'uploadResults');
+                } else {
+                    document.getElementById('uploadResults').innerHTML = 
+                        `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('uploadResults').innerHTML = 
+                    `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Error: ${error}</div>`;
+            });
+        });
+
+        function displayResults(results, containerId) {
+            let html = '<div class="results-table"><h6><i class="fas fa-chart-bar"></i> Prediction Results:</h6>';
+            html += '<div class="table-responsive"><table class="table table-striped table-hover">';
+            html += '<thead class="table-dark"><tr><th>Rank</th><th>Population</th><th>Confidence</th><th>Visual</th></tr></thead><tbody>';
+
+            results.forEach(result => {
+                const barWidth = Math.max(result.confidence, 5); // Minimum 5% for visibility
+                const barColor = result.confidence > 70 ? 'success' : result.confidence > 40 ? 'warning' : 'danger';
+
+                html += `<tr>
+                    <td><span class="badge bg-primary">${result.rank}</span></td>
+                    <td><strong>${result.population}</strong></td>
+                    <td><strong>${result.confidence.toFixed(2)}%</strong></td>
+                    <td>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-${barColor}" style="width: ${barWidth}%">
+                                ${result.confidence.toFixed(1)}%
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+
+            html += '</tbody></table></div></div>';
+
+            // Add interpretation
+            const topConfidence = results[0].confidence;
+            let interpretation = '';
+            if (topConfidence > 70) {
+                interpretation = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> <strong>High Confidence:</strong> Strong prediction reliability.</div>';
+            } else if (topConfidence > 40) {
+                interpretation = '<div class="alert alert-warning"><i class="fas fa-exclamation-circle"></i> <strong>Moderate Confidence:</strong> Consider additional markers for better accuracy.</div>';
+            } else {
+                interpretation = '<div class="alert alert-info"><i class="fas fa-info-circle"></i> <strong>Low Confidence:</strong> Results should be interpreted with caution.</div>';
+            }
+
+            html += interpretation;
+            document.getElementById(containerId).innerHTML = html;
+        }
+
+        function displayBatchResults(results, containerId) {
+            let html = '<div class="results-table"><h6><i class="fas fa-list"></i> Batch Processing Results:</h6>';
+            html += `<p class="text-muted">Processed ${results.length} samples successfully</p>`;
+            html += '<div class="table-responsive"><table class="table table-striped table-hover">';
+            html += '<thead class="table-dark"><tr><th>Sample ID</th><th>Top Population</th><th>Confidence</th><th>Status</th></tr></thead><tbody>';
+
+            results.forEach(result => {
+                const confidence = result.confidence;
+                const statusColor = confidence > 70 ? 'success' : confidence > 40 ? 'warning' : 'danger';
+                const statusText = confidence > 70 ? 'High' : confidence > 40 ? 'Moderate' : 'Low';
+
+                html += `<tr>
+                    <td><strong>${result.sample_id}</strong></td>
+                    <td><span class="badge bg-primary">${result.top_population}</span></td>
+                    <td><strong>${confidence.toFixed(2)}%</strong></td>
+                    <td><span class="badge bg-${statusColor}">${statusText}</span></td>
+                </tr>`;
+            });
+
+            html += '</tbody></table></div>';
+
+            // Add download button for results
+            html += '<div class="mt-3"><button class="btn btn-outline-success" onclick="downloadResults()"><i class="fas fa-download"></i> Download Results</button></div>';
+
+            html += '</div>';
+            document.getElementById(containerId).innerHTML = html;
+        }
+
+        function clearForm() {
+            document.getElementById('manualForm').reset();
+            document.getElementById('manualResults').innerHTML = '';
+        }
+
+        function downloadResults() {
+            // This would be implemented to download the results as CSV
+            alert('Download functionality would be implemented here');
+        }
+
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add tooltips to form inputs
+            const inputs = document.querySelectorAll('input[type="number"]');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.style.borderColor = '#007bff';
+                });
+                input.addEventListener('blur', function() {
+                    this.style.borderColor = '';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
